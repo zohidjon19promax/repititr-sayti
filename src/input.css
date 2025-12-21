@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* HTML ichidagi <style> tegida bo'lgan maxsus klasslarni bu yerga ko'chirsangiz ham bo'ladi */
+.bg-glow {
+    background: radial-gradient(circle at top right, #1e293b, #0f172a);
+}
+
+.glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}

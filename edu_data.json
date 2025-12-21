@@ -1,0 +1,39 @@
+{
+    "users": [
+        {
+            "phone": "+998505719163",
+            "code": "2107",
+            "name": "Asrorbek M.",
+            "role": "teacher"
+        },
+        {
+            "phone": "+998444444444",
+            "code": "4444",
+            "name": "Asrorbek M.",
+            "role": "teacher"
+        },
+        {
+            "phone": "998996665522",
+            "code": "1111",
+            "name": "Ustoz",
+            "role": "teacher"
+        }
+    ],
+    "tasks": [
+        {
+            "name": "Akbar",
+            "subject": "ona tili ",
+            "progress": "0%",
+            "status": "Faol",
+            "type": "student"
+        },
+        {
+            "title": "ingliz tili",
+            "date": "2025-12-22",
+            "group": "10",
+            "type": "task_assignment"
+        }
+    ],
+    "attendance": {},
+    "grades": []
+}
