@@ -6,9 +6,8 @@ import "./globals.css";
 // Asosiy shriftni sozlaymiz
 const inter = Inter({ subsets: ["latin"] });
 
-// Sayt sarlavhasi va tavsifi
 export const metadata: Metadata = {
-  title: "TutorCenter - O'quv Markazi Boshqaruvi",
+  title: "EduControl - Premium Dashboard",
   description: "O'qituvchilar va o'quvchilar uchun innovatsion platforma",
 };
 
@@ -19,14 +18,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="uz" suppressHydrationWarning>
+      <head>
+        {/* Ikonkalar chiqishi uchun FontAwesome linkini qo'shdik */}
+        <link 
+          rel="stylesheet" 
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+        />
+      </head>
       <body className={inter.className}>
         <ThemeProvider 
           attribute="class" 
-          defaultTheme="dark" 
+          defaultTheme="light" // Boshida light mode bo'lishi uchun (xohlasangiz dark qoling)
           enableSystem={true}
           disableTransitionOnChange
         >
-          {children}
+          {/* h-screen overflow-hidden saytni qotirib, skrollni chiroyli qiladi */}
+          <div className="h-screen overflow-hidden">
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>
