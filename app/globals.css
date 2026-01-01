@@ -61,8 +61,8 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
   --card: oklch(0.145 0 0);
   --card-foreground: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
@@ -70,10 +70,11 @@
 }
 
 @layer base {
-  *, ::after, ::before {
-    border-color: var(--border);
-    border-style: solid;
-    border-width: 0;
+  :root {
+    --background: 0 0% 100%; /* Oq fon */
+    --foreground: 222.2 84% 4.9%; /* To'q matn */
+    --card: 0 0% 100%;
+    --primary: 221.2 83.2% 53.3%; /* Moviy rang (tugmalar uchun) */
   }
   
   body {

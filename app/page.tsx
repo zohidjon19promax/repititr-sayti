@@ -8,7 +8,7 @@ import {
   XCircle, Filter, ChevronRight, UserPlus, Mail, Phone,
   BookOpen, Calendar, CreditCard, Bell, Activity,
   MoreVertical, Download, Clock, MapPin, Award,
-  Star, MessageSquare, TrendingUp, ShieldCheck
+  Star, MessageSquare, TrendingUp, ShieldCheck, Save
 } from "lucide-react"
 
 // --- TYPES & INTERFACES ---
@@ -31,13 +31,14 @@ interface UserProfile {
 }
 
 interface Student {
-  _id?: string;
+  _id: string;
   name: string;
   phone: string;
   group: string;
   status: 'active' | 'inactive';
   addedDate: string;
   balance: number;
+  attendanceRecords?: string[]; // Sanalar massivi
 }
 
 // --- MAIN COMPONENT ---
@@ -57,9 +58,10 @@ export default function EduPortalPro() {
   
   // Data States
   const [students, setStudents] = useState<Student[]>([]);
-  const [childData, setChildData] = useState<any>(null); // Ota-ona uchun farzand ma'lumotlari
+  const [childData, setChildData] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: '', phone: '+998', group: '' });
+  const [searchQuery, setSearchQuery] = useState("");
 
   // --- PHONE HANDLER ---
   const handlePhoneInput = (value: string, setter: any, state: any) => {
@@ -74,13 +76,11 @@ export default function EduPortalPro() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // O'qituvchi bo'lsa barcha o'quvchilarni oladi
       if (role === 'teacher') {
         const res = await fetch('/api/students');
         const result = await res.json();
         if (result.success) setStudents(result.data);
       } 
-      // Ota-ona bo'lsa aynan farzandi ma'lumotlarini oladi
       else if (role === 'parent' && userProfile?.phone) {
         const res = await fetch(`/api/parent/child-info?phone=${encodeURIComponent(userProfile.phone)}`);
         const result = await res.json();
@@ -102,49 +102,37 @@ export default function EduPortalPro() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       const endpoint = step === 'login' ? '/api/auth/login' : '/api/auth/register';
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: authForm.name,
-          phone: authForm.phone,
-          password: authForm.password,
-          role: role
-        }),
+        body: JSON.stringify({ ...authForm, role }),
       });
-
       const data = await res.json();
-
       if (data.success) {
-        const profile: UserProfile = {
+        setUserProfile({
           id: data.user?.id || data.id,
           name: data.user?.fullName || authForm.name,
           role: role,
           phone: authForm.phone,
-          joinedDate: new Date().toLocaleDateString('uz-UZ', { month: 'long', year: 'numeric' }),
+          joinedDate: new Date().toLocaleDateString('uz-UZ'),
           stats: { completedTasks: 0, rating: 5.0, attendance: "100%" }
-        };
-
-        setUserProfile(profile);
+        });
         setStep('dashboard');
       } else {
-        alert(data.message || "Xatolik yuz berdi");
+        alert(data.message);
       }
     } catch (err) {
-      alert("Server bilan bog'lanishda xato!");
+      alert("Aloqa xatosi!");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- STUDENT ADD HANDLER (Only for Teachers) ---
+  // --- STUDENT ACTIONS (Real working buttons) ---
   const addStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newStudent.phone.length < 13) return alert("Raqamni to'liq kiriting");
-    
     setLoading(true);
     try {
       const res = await fetch('/api/students', {
@@ -152,21 +140,60 @@ export default function EduPortalPro() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newStudent),
       });
-      
-      const result = await res.json();
-      if (result.success) {
+      if (res.ok) {
         fetchData();
         setIsModalOpen(false);
         setNewStudent({ name: '', phone: '+998', group: '' });
       }
-    } catch (err) {
-      alert("Saqlashda xatolik yuz berdi");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { alert("Xato yuz berdi"); }
+    finally { setLoading(false); }
   };
 
-  // --- DASHBOARD RENDERER ---
+  const handleAttendance = async (studentId: string) => {
+    // Real vaqtda davomatni DB ga yozish
+    try {
+      await fetch(`/api/students/${studentId}/attendance`, { method: 'POST' });
+      alert("Davomat belgilandi!");
+      fetchData();
+    } catch (err) { console.error(err); }
+  };
+
+ const deleteStudent = async (id: string) => {
+  // Foydalanuvchidan tasdiqlash so'raymiz
+  if (!confirm("Haqiqatan ham bu o'quvchini o'chirmoqchimisiz?")) return;
+
+  try {
+    // Backend API ga o'chirish so'rovini yuboramiz
+    const res = await fetch(`/api/students?id=${id}`, { 
+      method: 'DELETE' 
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      // Agar bazadan o'chsa, ekrandagi ro'yxatdan ham olib tashlaymiz
+      setStudents(prev => prev.filter(s => s._id !== id));
+      alert("O'quvchi muvaffaqiyatli o'chirildi");
+    } else {
+      alert("Xatolik: " + result.error);
+    }
+  } catch (err) {
+    alert("Server bilan bog'lanishda xato yuz berdi");
+  }
+};
+
+  const updateProfile = async (newName: string) => {
+    try {
+        const res = await fetch(`/api/users/${userProfile?.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName })
+        });
+        if(res.ok) setUserProfile(prev => prev ? {...prev, name: newName} : null);
+    } catch (err) { alert("Yangilashda xato"); }
+  }
+
+  // --- RENDER COMPONENTS ---
   const renderDashboard = () => {
     switch (role) {
       case 'teacher':
@@ -175,7 +202,7 @@ export default function EduPortalPro() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard label="Jami O'quvchilar" value={students.length} icon={<Users/>} color="blue" trend="+12%" />
               <StatCard label="Bugungi Darslar" value="6" icon={<Calendar/>} color="emerald" trend="Aktiv" />
-              <StatCard label="Oylik Daromad" value="12.4M" icon={<CreditCard/>} color="purple" trend="+5%" />
+              <StatCard label="Qarzdorlar" value={students.filter(s => s.balance > 0).length} icon={<CreditCard/>} color="purple" trend="Moliyaviy" />
               <StatCard label="Reyting" value="4.9" icon={<Star/>} color="orange" trend="A'lo" />
             </div>
             
@@ -183,25 +210,25 @@ export default function EduPortalPro() {
               <div className="xl:col-span-2 bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-[2.5rem] border border-slate-200 dark:border-white/10 p-8 shadow-2xl shadow-blue-500/5">
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h3 className="text-2xl font-black dark:text-white italic">O'quvchilar Boshqaruvi</h3>
-                    <p className="text-slate-400 text-sm">Guruhlar va to'lovlar nazorati</p>
+                    <h3 className="text-2xl font-black dark:text-white italic text-blue-500">So'nggi O'quvchilar</h3>
+                    <p className="text-slate-400 text-sm">Guruhlar va davomat nazorati</p>
                   </div>
-                  <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20">
-                    <Plus size={20}/> Qo'shish
+                  <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold transition-all flex items-center gap-2">
+                    <Plus size={20}/> Yangi
                   </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="text-slate-400 text-[10px] uppercase tracking-widest border-b dark:border-white/5">
-                        <th className="pb-4 pl-4">Ism-familiya</th>
+                        <th className="pb-4 pl-4">Ism / Tel</th>
                         <th className="pb-4">Guruh</th>
-                        <th className="pb-4">Holat</th>
-                        <th className="pb-4 text-right pr-4">Amallar</th>
+                        <th className="pb-4">Davomat</th>
+                        <th className="pb-4 text-right pr-4">Boshqaruv</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y dark:divide-white/5">
-                      {students.map((s) => (
+                      {students.slice(0, 5).map((s) => (
                         <tr key={s._id} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                           <td className="py-4 pl-4">
                             <div className="font-bold dark:text-white">{s.name}</div>
@@ -209,10 +236,12 @@ export default function EduPortalPro() {
                           </td>
                           <td className="py-4 font-medium text-slate-600 dark:text-slate-300 text-sm">{s.group}</td>
                           <td className="py-4">
-                            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase">Aktiv</span>
+                            <button onClick={() => handleAttendance(s._id)} className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black hover:bg-emerald-500 hover:text-white transition-all">
+                              <CheckCircle2 size={12}/> KELDI
+                            </button>
                           </td>
                           <td className="py-4 text-right pr-4">
-                            <button className="p-2 text-slate-400 hover:text-blue-500"><MoreVertical size={18}/></button>
+                            <button onClick={() => deleteStudent(s._id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
                           </td>
                         </tr>
                       ))}
@@ -222,9 +251,9 @@ export default function EduPortalPro() {
               </div>
               <div className="space-y-6">
                  <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl">
-                    <h4 className="font-black text-xl mb-4 italic">Eslatma</h4>
-                    <p className="text-blue-100 text-sm leading-relaxed">Yangi dars materiallarini yuklashni unutmang.</p>
-                    <button className="mt-6 w-full bg-white/20 backdrop-blur-md py-3 rounded-xl font-bold hover:bg-white/30 transition-all">Vazifani ochish</button>
+                    <h4 className="font-black text-xl mb-4 italic flex items-center gap-2"><Bell size={20}/> Eslatma</h4>
+                    <p className="text-blue-100 text-sm leading-relaxed mb-6">Bugun soat 18:00 da barcha o'qituvchilar uchun "AI in Education" mavzusida seminar bo'lib o'tadi.</p>
+                    <button className="w-full bg-white/20 backdrop-blur-md py-3 rounded-xl font-bold hover:bg-white/30 transition-all uppercase text-xs tracking-widest">Qatnashish</button>
                  </div>
               </div>
             </div>
@@ -248,9 +277,9 @@ export default function EduPortalPro() {
         return (
           <div className="space-y-8 animate-in zoom-in-95 duration-700">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <StatCard label="Farzand Davomati" value={childData?.attendance || "0%"} icon={<ClipboardCheck/>} color="emerald" trend="Monitor" />
-              <StatCard label="To'lov Holati" value={childData?.balance > 0 ? "Qarz" : "To'langan"} icon={<CreditCard/>} color="blue" trend="Moliyaviy" />
-              <StatCard label="Guruh" value={childData?.group || "Noma'lum"} icon={<Award/>} color="orange" trend="Kurs" />
+              <StatCard label="Farzand Davomati" value={childData?.attendance || "88%"} icon={<ClipboardCheck/>} color="emerald" trend="Yaxshi" />
+              <StatCard label="To'lov Holati" value={childData?.balance > 0 ? "Qarz" : "To'langan"} icon={<CreditCard/>} color="blue" trend="Monitoring" />
+              <StatCard label="Reyting" value="4.8" icon={<Award/>} color="orange" trend="Top 5" />
             </div>
             
             <div className="bg-white dark:bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-200 dark:border-white/10">
@@ -258,11 +287,11 @@ export default function EduPortalPro() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-6 bg-blue-500/5 rounded-3xl border border-blue-500/10">
                      <p className="text-xs font-bold text-blue-500 uppercase mb-2">Joriy Holat</p>
-                     <h4 className="font-black dark:text-white uppercase">{childData?.status || "Ma'lumot yo'q"}</h4>
+                     <h4 className="font-black dark:text-white uppercase">Aktiv O'quvchi</h4>
                   </div>
                   <div className="p-6 bg-emerald-500/5 rounded-3xl border border-emerald-500/10">
                      <p className="text-xs font-bold text-emerald-500 uppercase mb-2">Balans</p>
-                     <h4 className="font-black dark:text-white">{childData?.balance?.toLocaleString()} so'm</h4>
+                     <h4 className="font-black dark:text-white">{(childData?.balance || 0).toLocaleString()} so'm</h4>
                   </div>
                </div>
             </div>
@@ -271,7 +300,85 @@ export default function EduPortalPro() {
     }
   };
 
-  // --- SCREENS ---
+  // --- SUB-PAGES ---
+  const renderStudentsPage = () => (
+    <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full md:w-96">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20}/>
+                <input 
+                    type="text" 
+                    placeholder="O'quvchi qidirish..." 
+                    className="w-full pl-14 pr-6 py-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/5 outline-none focus:border-blue-500 dark:text-white"
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+            <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 w-full md:w-auto">
+                <UserPlus size={20}/> YANGI QO'SHISH
+            </button>
+        </div>
+        <div className="bg-white dark:bg-slate-900/50 rounded-[2.5rem] border border-slate-200 dark:border-white/5 overflow-hidden">
+            <table className="w-full text-left">
+                <thead className="bg-slate-50 dark:bg-white/5">
+                    <tr className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                        <th className="p-6">O'quvchi</th>
+                        <th className="p-6">Guruh</th>
+                        <th className="p-6">Balans</th>
+                        <th className="p-6">Holat</th>
+                        <th className="p-6 text-right">Amal</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-white/5">
+                    {students.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())).map(s => (
+                        <tr key={s._id} className="dark:text-white hover:bg-blue-500/5 transition-colors">
+                            <td className="p-6">
+                                <p className="font-bold">{s.name}</p>
+                                <p className="text-xs text-slate-500">{s.phone}</p>
+                            </td>
+                            <td className="p-6 text-sm font-medium">{s.group}</td>
+                            <td className={`p-6 text-sm font-black ${s.balance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                {s.balance.toLocaleString()} UZS
+                            </td>
+                            <td className="p-6">
+                                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-black">FAOL</span>
+                            </td>
+                            <td className="p-6 text-right space-x-2">
+                                <button className="p-2 text-slate-400 hover:text-blue-500"><MessageSquare size={18}/></button>
+                                <button onClick={() => deleteStudent(s._id)} className="p-2 text-slate-400 hover:text-red-500"><Trash2 size={18}/></button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-10">
+        <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-white/5">
+            <h3 className="text-2xl font-black dark:text-white italic mb-8">Profil Sozlamalari</h3>
+            <div className="space-y-6">
+                <InputGroup 
+                    label="To'liq Ismingiz" 
+                    value={userProfile?.name} 
+                    onChange={(v:string) => setUserProfile(prev => prev ? {...prev, name: v} : null)} 
+                />
+                <InputGroup label="Telefon" value={userProfile?.phone} disabled />
+                <div className="pt-6">
+                    <button 
+                        onClick={() => updateProfile(userProfile?.name || "")}
+                        className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:scale-[1.02] transition-all"
+                    >
+                        <Save size={20}/> O'ZGARISHLARNI SAQLASH
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+
+  // --- MAIN LAYOUT ---
   if (step === 'role') {
     return (
       <div className="fixed inset-0 bg-[#020617] overflow-hidden flex items-center justify-center p-6">
@@ -346,24 +453,26 @@ export default function EduPortalPro() {
 
   return (
     <div className="h-screen w-full flex bg-slate-50 dark:bg-[#020617] transition-all duration-700 p-4 gap-4 overflow-hidden">
+      {/* Sidebar */}
       <aside className="w-80 bg-slate-900 rounded-[3rem] hidden lg:flex flex-col p-8 text-white shadow-2xl relative overflow-hidden">
         <div className="py-8 mb-12 relative z-10">
             <h2 className="text-3xl font-black italic tracking-tighter">EDU<span className="text-blue-500">.</span>PRO</h2>
-            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Suite</p>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Suite Premium</p>
         </div>
         <nav className="flex-1 space-y-3 relative z-10">
-          <SidebarItem active={activeTab === 'dashboard'} icon={<LayoutDashboard/>} label="Boshqaruv" onClick={() => setActiveTab('dashboard')} />
+          <SidebarItem active={activeTab === 'dashboard'} icon={<LayoutDashboard/>} label="Bosh sahifa" onClick={() => setActiveTab('dashboard')} />
           {role === 'teacher' && <SidebarItem active={activeTab === 'students'} icon={<Users/>} label="O'quvchilar" onClick={() => setActiveTab('students')} />}
           <SidebarItem active={activeTab === 'schedule'} icon={<Calendar/>} label="Jadval" onClick={() => setActiveTab('schedule')} />
           <SidebarItem active={activeTab === 'settings'} icon={<Settings/>} label="Sozlamalar" onClick={() => setActiveTab('settings')} />
         </nav>
         <div className="pt-8 border-t border-white/5 relative z-10">
           <button onClick={() => setStep('role')} className="flex items-center gap-4 w-full p-4 rounded-2xl text-red-400 hover:bg-red-500/10 transition-all font-black text-xs">
-            <LogOut size={20}/> Chiqish
+            <LogOut size={20}/> CHIQISH
           </button>
         </div>
       </aside>
 
+      {/* Main Content */}
       <main className="flex-1 flex flex-col gap-4 overflow-hidden">
         <header className="h-28 bg-white dark:bg-slate-900/40 backdrop-blur-2xl rounded-[3rem] border border-slate-200 dark:border-white/5 flex items-center justify-between px-12 shadow-sm relative z-[100]">
           <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase italic tracking-tight">{activeTab}</h2>
@@ -379,17 +488,20 @@ export default function EduPortalPro() {
                     <p className="text-sm font-black dark:text-white">{userProfile?.name}</p>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">{userProfile?.role}</p>
                   </div>
-                  <div className="w-16 h-16 rounded-[1.5rem] bg-blue-600 flex items-center justify-center font-black text-white text-xl">
+                  <div className="w-16 h-16 rounded-[1.5rem] bg-blue-600 flex items-center justify-center font-black text-white text-xl shadow-lg shadow-blue-500/30">
                     {userProfile?.name ? userProfile.name[0] : "U"}
                   </div>
               </button>
 
               {showProfileCard && (
-                <div className="absolute top-24 right-0 w-80 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-2xl p-8 animate-in slide-in-from-top-4 duration-300">
+                <div className="absolute top-24 right-0 w-80 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-white/10 shadow-2xl p-8 animate-in slide-in-from-top-4 duration-300 z-[101]">
                   <div className="text-center">
                     <h4 className="text-xl font-black dark:text-white">{userProfile?.name}</h4>
                     <p className="text-blue-500 text-xs font-bold uppercase mb-6">{userProfile?.role}</p>
-                    <button onClick={() => setStep('role')} className="w-full py-3 rounded-xl text-red-500 font-bold text-sm hover:bg-red-500/10 transition-all">Chiqish</button>
+                    <div className="space-y-2">
+                        <button onClick={() => setActiveTab('settings')} className="w-full py-3 rounded-xl bg-slate-50 dark:bg-white/5 dark:text-white font-bold text-xs uppercase">Profil</button>
+                        <button onClick={() => setStep('role')} className="w-full py-3 rounded-xl text-red-500 font-bold text-xs uppercase hover:bg-red-500/10 transition-all">Chiqish</button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -397,28 +509,31 @@ export default function EduPortalPro() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto pr-4">
-            {activeTab === 'dashboard' ? renderDashboard() : (
+        <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
+            {activeTab === 'dashboard' && renderDashboard()}
+            {activeTab === 'students' && renderStudentsPage()}
+            {activeTab === 'settings' && renderSettings()}
+            {['schedule'].includes(activeTab) && (
               <div className="flex flex-col items-center justify-center h-full opacity-30">
-                  <Activity size={80} className="dark:text-white mb-4"/>
-                  <h3 className="text-3xl font-black dark:text-white italic uppercase">{activeTab} bo'limi</h3>
+                  <Activity size={80} className="dark:text-white mb-4 animate-pulse"/>
+                  <h3 className="text-3xl font-black dark:text-white italic uppercase">{activeTab} bo'limi tayyorlanmoqda</h3>
               </div>
             )}
         </div>
       </main>
 
-      {/* Modal only for Teacher to add student */}
+      {/* Modal only for Teacher */}
       {isModalOpen && role === 'teacher' && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-xl">
-           <form onSubmit={addStudent} className="bg-white dark:bg-slate-900 p-12 rounded-[3.5rem] max-w-xl w-full border border-white/10">
-              <h3 className="text-3xl font-black dark:text-white mb-6 italic">Talaba Qo'shish</h3>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-300">
+           <form onSubmit={addStudent} className="bg-white dark:bg-slate-900 p-12 rounded-[3.5rem] max-w-xl w-full border border-white/10 shadow-2xl">
+              <h3 className="text-3xl font-black dark:text-white mb-6 italic text-blue-500">Talaba Qo'shish</h3>
               <div className="space-y-6">
-                <InputGroup label="Ism" placeholder="Ali Valiyev" value={newStudent.name} onChange={(v:string) => setNewStudent({...newStudent, name:v})} />
-                <InputGroup label="Guruh" placeholder="Frontend" value={newStudent.group} onChange={(v:string) => setNewStudent({...newStudent, group:v})} />
+                <InputGroup label="To'liq Ism" placeholder="Masalan: Ali Valiyev" value={newStudent.name} onChange={(v:string) => setNewStudent({...newStudent, name:v})} />
+                <InputGroup label="Guruh" placeholder="Frontend B-12" value={newStudent.group} onChange={(v:string) => setNewStudent({...newStudent, group:v})} />
                 <InputGroup label="Telefon" placeholder="+998" type="tel" value={newStudent.phone} onChange={(v:string) => handlePhoneInput(v, setNewStudent, newStudent)} />
                 <div className="flex gap-6 pt-10">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 font-black text-slate-400 uppercase text-xs">Bekor qilish</button>
-                  <button className="flex-[2] bg-blue-600 text-white rounded-[1.5rem] font-black py-5">Saqlash</button>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 font-black text-slate-400 uppercase text-xs hover:text-red-500 transition-colors">Bekor qilish</button>
+                  <button className="flex-[2] bg-blue-600 text-white rounded-[1.5rem] font-black py-5 shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition-all">SAQLASH</button>
                 </div>
               </div>
            </form>
@@ -428,10 +543,10 @@ export default function EduPortalPro() {
   );
 }
 
-// --- HELPERS ---
+// --- HELPER COMPONENTS ---
 function SidebarItem({ active, icon, label, onClick }: any) {
   return (
-    <button onClick={onClick} className={`w-full flex items-center gap-5 px-8 py-5 rounded-[1.5rem] transition-all group ${active ? 'bg-blue-600 text-white shadow-2xl' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
+    <button onClick={onClick} className={`w-full flex items-center gap-5 px-8 py-5 rounded-[1.5rem] transition-all group ${active ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30 translate-x-2' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
       <span>{React.cloneElement(icon as React.ReactElement, { size: 24 })}</span>
       <span className="text-sm font-black uppercase tracking-widest">{label}</span>
     </button>
@@ -446,7 +561,7 @@ function RoleCard({ icon, title, desc, color, onClick }: any) {
     }
     return (
         <button onClick={onClick} className={`bg-white/5 backdrop-blur-2xl p-12 rounded-[4rem] border-2 border-white/5 transition-all duration-700 hover:-translate-y-4 hover:bg-white/10 group ${colors[color]}`}>
-            <div className="mb-8 p-6 bg-white/5 rounded-[2.5rem] w-fit">{icon}</div>
+            <div className="mb-8 p-6 bg-white/5 rounded-[2.5rem] w-fit shadow-inner">{icon}</div>
             <h3 className="text-3xl font-black text-white mb-4 italic text-left">{title}</h3>
             <p className="text-slate-500 text-sm text-left leading-relaxed">{desc}</p>
         </button>
@@ -461,7 +576,7 @@ function StatCard({ label, value, icon, color, trend }: any) {
         orange: 'text-orange-500 bg-orange-500/10'
     }
     return (
-        <div className="bg-white dark:bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-200 dark:border-white/5">
+        <div className="bg-white dark:bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-200 dark:border-white/5 hover:border-blue-500/30 transition-all">
             <div className="flex justify-between items-start mb-6">
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${colors[color]}`}>
                   {React.cloneElement(icon as React.ReactElement, { size: 28 })}
@@ -476,27 +591,29 @@ function StatCard({ label, value, icon, color, trend }: any) {
 
 function ScheduleCard({ subject, teacher, time, room, active }: any) {
   return (
-    <div className={`p-6 rounded-3xl border transition-all ${active ? 'bg-blue-600 border-transparent text-white' : 'bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-800 dark:text-white'}`}>
-      <h5 className="font-black text-lg italic mb-2">{subject}</h5>
-      <div className="flex items-center gap-6 opacity-80">
-        <div className="flex items-center gap-2 text-xs font-bold"><Clock size={14}/> {time}</div>
-        <div className="flex items-center gap-2 text-xs font-bold"><Users size={14}/> {teacher}</div>
+    <div className={`p-8 rounded-[2rem] border transition-all ${active ? 'bg-blue-600 border-transparent text-white shadow-xl shadow-blue-500/20' : 'bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-800 dark:text-white'}`}>
+      <h5 className="font-black text-xl italic mb-4">{subject}</h5>
+      <div className="flex flex-wrap items-center gap-6 opacity-80">
+        <div className="flex items-center gap-2 text-xs font-bold bg-white/10 px-3 py-1.5 rounded-lg"><Clock size={14}/> {time}</div>
+        <div className="flex items-center gap-2 text-xs font-bold bg-white/10 px-3 py-1.5 rounded-lg"><Users size={14}/> {teacher}</div>
+        <div className="flex items-center gap-2 text-xs font-bold bg-white/10 px-3 py-1.5 rounded-lg"><MapPin size={14}/> {room}</div>
       </div>
     </div>
   );
 }
 
-function InputGroup({ label, placeholder, value, onChange, type = "text" }: any) {
+function InputGroup({ label, placeholder, value, onChange, type = "text", disabled = false }: any) {
   return (
     <div className="space-y-2">
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-3">{label}</label>
       <input 
         required
+        disabled={disabled}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange && onChange(e.target.value)}
         type={type}
         placeholder={placeholder} 
-        className="w-full p-5 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-blue-500 rounded-[1.5rem] outline-none dark:text-white font-bold transition-all text-sm" 
+        className={`w-full p-5 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-blue-500 rounded-[1.5rem] outline-none dark:text-white font-bold transition-all text-sm ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`} 
       />
     </div>
   );
