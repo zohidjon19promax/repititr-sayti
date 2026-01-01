@@ -98,37 +98,53 @@ export default function EduPortalPro() {
     document.documentElement.classList.toggle('dark', isDarkMode);
   }, [step, isDarkMode, role]);
 
-  // --- AUTH HANDLER ---
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const endpoint = step === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...authForm, role }),
+const handleAuth = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+
+  try {
+    const isLogin = step === 'login';
+    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    
+    // API ga yuboriladigan ma'lumotlarni tayyorlash
+    const payload = isLogin 
+      ? { phone: authForm.phone, password: authForm.password, role: role }
+      : { fullName: authForm.name, phone: authForm.phone, password: authForm.password, role: role };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      // Profil ma'lumotlarini o'rnatish
+      setUserProfile({
+        id: data.user?.id || data.id,
+        // Agar login bo'lsa backenddan kelgan ismni, agar register bo'lsa formadagi ismni olamiz
+        name: data.user?.fullName || authForm.name,
+        role: role,
+        phone: authForm.phone,
+        joinedDate: data.user?.createdAt 
+          ? new Date(data.user.createdAt).toLocaleDateString('uz-UZ') 
+          : new Date().toLocaleDateString('uz-UZ'),
+        stats: { completedTasks: 0, rating: 5.0, attendance: "100%" }
       });
-      const data = await res.json();
-      if (data.success) {
-        setUserProfile({
-          id: data.user?.id || data.id,
-          name: data.user?.fullName || authForm.name,
-          role: role,
-          phone: authForm.phone,
-          joinedDate: new Date().toLocaleDateString('uz-UZ'),
-          stats: { completedTasks: 0, rating: 5.0, attendance: "100%" }
-        });
-        setStep('dashboard');
-      } else {
-        alert(data.message);
-      }
-    } catch (err) {
-      alert("Aloqa xatosi!");
-    } finally {
-      setLoading(false);
+      
+      setStep('dashboard');
+    } else {
+      // Backenddan kelgan aniq xabarni ko'rsatish (masalan: "Parol noto'g'ri")
+      alert(data.message);
     }
-  };
+  } catch (err) {
+    console.error("Auth error:", err);
+    alert("Server bilan aloqa uzildi yoki internetda xatolik!");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // --- STUDENT ACTIONS (Real working buttons) ---
   const addStudent = async (e: React.FormEvent) => {
