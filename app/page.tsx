@@ -59,10 +59,54 @@ export default function EduPortalPro() {
   // Data States
   const [students, setStudents] = useState<Student[]>([]);
   const [childData, setChildData] = useState<any>(null);
+  const [schedules, setSchedules] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: '', phone: '+998', group: '' });
   const [searchQuery, setSearchQuery] = useState("");
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [newLesson, setNewLesson] = useState({
+  subject: '',
+  time: '',
+  room: '',
+  group: '',
+  dayOfWeek: 'Dushanba'
+});
+  const fetchSchedules = async () => {
+  if (!userProfile) return;
+  
+  // Masalan: /api/schedule?role=teacher&userId=123
+// fetchSchedules ichidagi url qatorini shunday yozing:
+const url = `/api/schedule?role=${role}&userId=${userProfile?.id}&group=${(userProfile as any)?.group || ''}`;  const res = await fetch(url);
+  const result = await res.json();
+  
+  if (result.success) {
+    setSchedules(result.data); // 'schedules' state-ni yangilaydi
+  }
+};
+const addLesson = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
+    const res = await fetch('/api/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...newLesson,
+        teacher: userProfile?.name || userProfile?.name,
+        teacherId: userProfile?.id
+      }),
+    });
 
+    const data = await res.json();
+    if (data.success) {
+      setSchedules([...schedules, data.data]); // Jadvalni yangilash
+      setIsScheduleModalOpen(false); // Oynani yopish
+      setNewLesson({ subject: '', time: '', room: '', group: '', dayOfWeek: 'Dushanba' }); // Formani tozalash
+      alert("Dars qo'shildi!");
+    }
+  } catch (err) {
+    alert("Xatolik yuz berdi");
+  }
+};
   // --- PHONE HANDLER ---
   const handlePhoneInput = (value: string, setter: any, state: any) => {
     const digits = value.replace(/\D/g, '');
@@ -71,7 +115,7 @@ export default function EduPortalPro() {
         setter({ ...state, phone: formatted });
     }
   };
-
+  
   // --- DATA FETCHING ---
   const fetchData = async () => {
     setLoading(true);
@@ -92,11 +136,22 @@ export default function EduPortalPro() {
       setLoading(false);
     }
   };
+useEffect(() => {
+  // 1. Dashboardga o'tganda ma'lumotlarni yuklash
+  if (step === 'dashboard') {
+    fetchData();      // O'quvchilar va umumiy ma'lumotlar uchun
+    fetchSchedules(); // Dars jadvalini yuklash uchun (yangi qo'shildi)
+  }
 
-  useEffect(() => {
-    if (step === 'dashboard') fetchData();
-    document.documentElement.classList.toggle('dark', isDarkMode);
-  }, [step, isDarkMode, role]);
+  // 2. Dark mode (Tungi rejim) sozlamasi
+  document.documentElement.classList.toggle('dark', isDarkMode);
+
+  // 3. Ota-ona uchun maxsus yuklash (agar kerak bo'lsa)
+  if (step === 'dashboard' && role === 'parent') {
+    // fetchChildData() kabi funksiyalarni ham shu yerda chaqirish mumkin
+  }
+
+}, [step, isDarkMode, role, userProfile]); // userProfile qo'shildi, chunki ma'lumot unga bog'liq
 
 const handleAuth = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -209,16 +264,22 @@ const handleAuth = async (e: React.FormEvent) => {
     } catch (err) { alert("Yangilashda xato"); }
   }
 
-  // --- RENDER COMPONENTS ---
+// --- RENDER COMPONENTS ---
   const renderDashboard = () => {
     switch (role) {
       case 'teacher':
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* students.length - bazadagi o'quvchilar sonini chiqaradi */}
               <StatCard label="Jami O'quvchilar" value={students.length} icon={<Users/>} color="blue" trend="+12%" />
-              <StatCard label="Bugungi Darslar" value="6" icon={<Calendar/>} color="emerald" trend="Aktiv" />
-              <StatCard label="Qarzdorlar" value={students.filter(s => s.balance > 0).length} icon={<CreditCard/>} color="purple" trend="Moliyaviy" />
+              
+              {/* schedules.length - bugungi darslar sonini bazadan oladi */}
+              <StatCard label="Bugungi Darslar" value={schedules.length || "0"} icon={<Calendar/>} color="emerald" trend="Aktiv" />
+              
+              {/* Balansi 0 dan kichik (qarzi bor) o'quvchilarni sanaydi */}
+              <StatCard label="Qarzdorlar" value={students.filter(s => s.balance < 0).length} icon={<CreditCard/>} color="purple" trend="Moliyaviy" />
+              
               <StatCard label="Reyting" value="4.9" icon={<Star/>} color="orange" trend="A'lo" />
             </div>
             
@@ -230,8 +291,10 @@ const handleAuth = async (e: React.FormEvent) => {
                     <p className="text-slate-400 text-sm">Guruhlar va davomat nazorati</p>
                   </div>
                   <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold transition-all flex items-center gap-2">
-                    <Plus size={20}/> Yangi
-                  </button>
+                    <Plus size={20}/> Yangi o'quvchi </button>
+                 // teacher panelining yuqori qismiga (Yangi o'quvchi tugmasi yoniga)
+                  <button onClick={() => setIsScheduleModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-bold transition-all flex items-center gap-2"
+>                   <Calendar size={20}/> Dars Qo'shish </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
@@ -244,7 +307,8 @@ const handleAuth = async (e: React.FormEvent) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y dark:divide-white/5">
-                      {students.slice(0, 5).map((s) => (
+                      {/* students massividan ma'lumotlarni chiqarish */}
+                      {students.length > 0 ? students.slice(0, 5).map((s) => (
                         <tr key={s._id} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                           <td className="py-4 pl-4">
                             <div className="font-bold dark:text-white">{s.name}</div>
@@ -260,7 +324,9 @@ const handleAuth = async (e: React.FormEvent) => {
                             <button onClick={() => deleteStudent(s._id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
                           </td>
                         </tr>
-                      ))}
+                      )) : (
+                        <tr><td colSpan={4} className="py-10 text-center text-slate-500">O'quvchilar topilmadi</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -282,8 +348,21 @@ const handleAuth = async (e: React.FormEvent) => {
               <div className="bg-white dark:bg-slate-900/50 p-10 rounded-[3rem] border border-slate-200 dark:border-white/10 shadow-2xl">
                 <h3 className="text-3xl font-black dark:text-white italic mb-8">Dars Jadvaling</h3>
                 <div className="space-y-4">
-                  <ScheduleCard subject="Advanced React Patterns" teacher="Ustoz" time="14:00 - 15:30" room="Online" active />
-                  <ScheduleCard subject="UI/UX Architecture" teacher="Sarah" time="16:00 - 17:30" room="402-xona" active={false} />
+                  {/* Bazadan kelgan darslarni chiqarish */}
+                  {schedules.length > 0 ? schedules.map((item, index) => (
+                    <ScheduleCard 
+                      key={index}
+                      subject={item.subject} 
+                      teacher={item.teacher} 
+                      time={item.time} 
+                      room={item.room} 
+                      active={index === 0} 
+                    />
+                  )) : (
+                    <div className="p-10 border-2 border-dashed border-slate-200 rounded-3xl text-center text-slate-400">
+                       Hozircha darslar belgilanmagan
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -293,17 +372,18 @@ const handleAuth = async (e: React.FormEvent) => {
         return (
           <div className="space-y-8 animate-in zoom-in-95 duration-700">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <StatCard label="Farzand Davomati" value={childData?.attendance || "88%"} icon={<ClipboardCheck/>} color="emerald" trend="Yaxshi" />
-              <StatCard label="To'lov Holati" value={childData?.balance > 0 ? "Qarz" : "To'langan"} icon={<CreditCard/>} color="blue" trend="Monitoring" />
-              <StatCard label="Reyting" value="4.8" icon={<Award/>} color="orange" trend="Top 5" />
+              {/* childData ichidagi real davomatni chiqaradi */}
+              <StatCard label="Farzand Davomati" value={childData?.attendance || "0%"} icon={<ClipboardCheck/>} color="emerald" trend="Yaxshi" />
+              <StatCard label="To'lov Holati" value={childData?.balance < 0 ? "Qarz" : "To'langan"} icon={<CreditCard/>} color="blue" trend="Monitoring" />
+              <StatCard label="Reyting" value={childData?.rating || "0.0"} icon={<Award/>} color="orange" trend="Top 5" />
             </div>
             
             <div className="bg-white dark:bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-200 dark:border-white/10">
-               <h3 className="text-xl font-black dark:text-white mb-6 italic">Farzand: {childData?.name || "Yuklanmoqda..."}</h3>
+               <h3 className="text-xl font-black dark:text-white mb-6 italic">Farzand: {childData?.fullName || "Yuklanmoqda..."}</h3>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-6 bg-blue-500/5 rounded-3xl border border-blue-500/10">
                      <p className="text-xs font-bold text-blue-500 uppercase mb-2">Joriy Holat</p>
-                     <h4 className="font-black dark:text-white uppercase">Aktiv O'quvchi</h4>
+                     <h4 className="font-black dark:text-white uppercase">{childData?.status || "Aktiv"}</h4>
                   </div>
                   <div className="p-6 bg-emerald-500/5 rounded-3xl border border-emerald-500/10">
                      <p className="text-xs font-bold text-emerald-500 uppercase mb-2">Balans</p>
@@ -315,7 +395,6 @@ const handleAuth = async (e: React.FormEvent) => {
         );
     }
   };
-
   // --- SUB-PAGES ---
   const renderStudentsPage = () => (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -487,7 +566,61 @@ const handleAuth = async (e: React.FormEvent) => {
           </button>
         </div>
       </aside>
-
+      {/* DARS QO'SHISH MODAL OYNASI */}
+{isScheduleModalOpen && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
+      <h3 className="text-2xl font-black mb-6 italic dark:text-white">Yangi Dars Qo'shish</h3>
+      
+      <form onSubmit={addLesson} className="space-y-4">
+        <input
+          placeholder="Fan nomi (masalan: Matematika)"
+          className="w-full p-4 rounded-2xl border border-slate-200 dark:bg-slate-800 dark:border-white/10 dark:text-white"
+          value={newLesson.subject}
+          onChange={e => setNewLesson({...newLesson, subject: e.target.value})}
+          required
+        />
+        <input
+          placeholder="Vaqt (masalan: 14:00 - 15:30)"
+          className="w-full p-4 rounded-2xl border border-slate-200 dark:bg-slate-800 dark:border-white/10 dark:text-white"
+          value={newLesson.time}
+          onChange={e => setNewLesson({...newLesson, time: e.target.value})}
+          required
+        />
+        <input
+          placeholder="Xona yoki Online"
+          className="w-full p-4 rounded-2xl border border-slate-200 dark:bg-slate-800 dark:border-white/10 dark:text-white"
+          value={newLesson.room}
+          onChange={e => setNewLesson({...newLesson, room: e.target.value})}
+          required
+        />
+        <input
+          placeholder="Guruh nomi"
+          className="w-full p-4 rounded-2xl border border-slate-200 dark:bg-slate-800 dark:border-white/10 dark:text-white"
+          value={newLesson.group}
+          onChange={e => setNewLesson({...newLesson, group: e.target.value})}
+          required
+        />
+        
+        <div className="flex gap-4 pt-4">
+          <button 
+            type="button" 
+            onClick={() => setIsScheduleModalOpen(false)}
+            className="flex-1 p-4 rounded-2xl font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all"
+          >
+            Bekor qilish
+          </button>
+          <button 
+            type="submit"
+            className="flex-1 p-4 rounded-2xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-500/30 transition-all"
+          >
+            Saqlash
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
       {/* Main Content */}
       <main className="flex-1 flex flex-col gap-4 overflow-hidden">
         <header className="h-28 bg-white dark:bg-slate-900/40 backdrop-blur-2xl rounded-[3rem] border border-slate-200 dark:border-white/5 flex items-center justify-between px-12 shadow-sm relative z-[100]">
