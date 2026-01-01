@@ -1,56 +1,83 @@
 import clientPromise from "@/lib/mongodb";
 import { NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
+import bcrypt from "bcryptjs";
 
-export async function GET(req: Request) {
+/**
+ * Login API:
+ * Foydalanuvchi ma'lumotlarini tekshiradi va sessiya uchun ma'lumot qaytaradi.
+ */
+export async function POST(req: Request) {
   try {
-    // 1. URL dan ota-onaning telefon raqamini yoki ID sini olamiz
-    const { searchParams } = new URL(req.url);
-    const parentPhone = searchParams.get("phone");
+    // 1. Ma'lumotlar bazasiga ulanish
+    const client = await (clientPromise as Promise<MongoClient>);
+    const db = client.db("repetitor_db");
 
-    if (!parentPhone) {
+    // 2. So'rov tanasini (body) xavfsiz o'qish
+    const body = await req.json();
+    const { phone, password, role } = body;
+
+    // 3. Validatsiya - Ma'lumotlar kelganini tekshirish
+    if (!phone || !password || !role) {
       return NextResponse.json(
-        { success: false, message: "Telefon raqami topilmadi" },
+        { success: false, message: "Telefon, parol va rolni kiriting!" },
         { status: 400 }
       );
     }
 
-    // 2. Bazaga ulanamiz
-    const client = await (clientPromise as Promise<MongoClient>);
-    const db = client.db("repetitor_db");
+    // Telefon raqamini tozalash (faqat raqamlar: +998 90 123 45 67 -> 998901234567)
+    const cleanPhone = phone.replace(/\D/g, "");
 
-    /**
-     * 3. Farzand ma'lumotlarini qidirish.
-     * Real tizimda ota-ona va talaba telefon raqami orqali bog'lanadi.
-     * Bu yerda 'students' kolleksiyasidan ota-ona raqamiga mos keluvchi talabani qidiramiz.
-     */
-    const childData = await db.collection("students").findOne({ 
-      parentPhone: parentPhone 
+    // 4. Foydalanuvchini bazadan qidirish (Roli bilan birga)
+    const user = await db.collection("users").findOne({ 
+      phone: cleanPhone, 
+      role: role 
     });
 
-    if (!childData) {
-      return NextResponse.json({
-        success: true,
-        message: "Farzand ma'lumotlari hali ulanmagan",
-        data: {
-          name: "Topilmadi",
-          attendance: "0%",
-          balance: 0,
-          status: "Noma'lum"
-        }
-      });
+    // 5. Agar foydalanuvchi topilmasa
+    if (!user) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: "Bunday telefon raqamli foydalanuvchi topilmadi yoki tanlangan rol noto'g'ri!" 
+        },
+        { status: 404 }
+      );
     }
 
-    // 4. Ma'lumotlarni muvaffaqiyatli qaytaramiz
+    // 6. Parolni bcrypt orqali tekshirish
+    // user.password — bu bazadagi shifrlangan qator
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordCorrect) {
+      return NextResponse.json(
+        { success: false, message: "Kiritilgan parol noto'g'ri!" },
+        { status: 401 }
+      );
+    }
+
+    // 7. Muvaffaqiyatli kirish - Foydalanuvchi ma'lumotlarini tayyorlash
+    // Parolni xavfsizlik yuzasidan foydalanuvchiga qaytarmaslik kerak
+    const { password: _, _id, ...safeUserData } = user;
+
     return NextResponse.json({
       success: true,
-      data: childData
+      message: "Xush kelibsiz! Tizimga muvaffaqiyatli kirdingiz.",
+      user: {
+        id: _id.toString(), // MongoDB ObjectId'sini stringga o'tkazamiz
+        ...safeUserData
+      }
     });
 
-  } catch (e: any) {
-    console.error("Parent API Error:", e);
+  } catch (error: any) {
+    // Xatolikni konsolga yozish (debugging uchun)
+    console.error("CRITICAL LOGIN ERROR:", error);
+
     return NextResponse.json(
-      { success: false, message: "Serverda xatolik yuz berdi" },
+      { 
+        success: false, 
+        message: "Serverda texnik xatolik yuz berdi. Iltimos, keyinroq urunib ko'ring." 
+      },
       { status: 500 }
     );
   }
