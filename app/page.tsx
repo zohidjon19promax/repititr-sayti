@@ -59,18 +59,28 @@ export default function EduPortalPro() {
   // Data States
   const [students, setStudents] = useState<Student[]>([]);
   const [childData, setChildData] = useState<any>(null);
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: '', phone: '+998', group: '' });
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [schedules, setSchedules] = useState<any[]>([]); // Jadval uchun
+  const [isModalOpen, setIsModalOpen] = useState(false); // O'quvchi qo'shish oynasi
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false); // Dars qo'shish oynasi
+  
+  // Yangi o'quvchi (ota-ona telefoni bilan)
+  const [newStudent, setNewStudent] = useState({ 
+    name: '', 
+    phone: '+998', 
+    group: '', 
+    parentPhone: '+998' 
+  });
+
+  // Yangi dars qo'shish uchun
   const [newLesson, setNewLesson] = useState({
-  subject: '',
-  time: '',
-  room: '',
-  group: '',
-  dayOfWeek: 'Dushanba'
-});
+    subject: '',
+    time: '',
+    room: '',
+    group: '',
+    dayOfWeek: 'Dushanba'
+  });
+
+  const [searchQuery, setSearchQuery] = useState("");
   const fetchSchedules = async () => {
   if (!userProfile) return;
   
@@ -136,6 +146,20 @@ const addLesson = async (e: React.FormEvent) => {
       setLoading(false);
     }
   };
+  const fetchChildData = async () => {
+  // Foydalanuvchi roli 'parent' bo'lsa va telefoni bo'lsa ishlaydi
+  if (role === 'parent' && userProfile?.phone) {
+    try {
+      const res = await fetch(`/api/parent/child?phone=${userProfile.phone}`);
+      const data = await res.json();
+      if (data.success) {
+        setChildData(data.child);
+      }
+    } catch (err) {
+      console.error("Farzand ma'lumotini yuklashda xato:", err);
+    }
+  }
+};
 useEffect(() => {
   // 1. Dashboardga o'tganda ma'lumotlarni yuklash
   if (step === 'dashboard') {
@@ -213,9 +237,7 @@ const handleAuth = async (e: React.FormEvent) => {
       });
       if (res.ok) {
         fetchData();
-        setIsModalOpen(false);
-        setNewStudent({ name: '', phone: '+998', group: '' });
-      }
+        setIsModalOpen(false);}
     } catch (err) { alert("Xato yuz berdi"); }
     finally { setLoading(false); }
   };
@@ -677,8 +699,25 @@ const handleAuth = async (e: React.FormEvent) => {
            <form onSubmit={addStudent} className="bg-white dark:bg-slate-900 p-12 rounded-[3.5rem] max-w-xl w-full border border-white/10 shadow-2xl">
               <h3 className="text-3xl font-black dark:text-white mb-6 italic text-blue-500">Talaba Qo'shish</h3>
               <div className="space-y-6">
-                <InputGroup label="To'liq Ism" placeholder="Masalan: Ali Valiyev" value={newStudent.name} onChange={(v:string) => setNewStudent({...newStudent, name:v})} />
-                <InputGroup label="Guruh" placeholder="Frontend B-12" value={newStudent.group} onChange={(v:string) => setNewStudent({...newStudent, group:v})} />
+                <div className="space-y-6">
+  <InputGroup label="To'liq Ism" value={newStudent.name} onChange={(v:string) => setNewStudent({...newStudent, name:v})} />
+  
+  {/* O'quvchi telefoni */}
+  <InputGroup label="Telefon" value={newStudent.phone} onChange={(v:string) => handlePhoneInput(v, setNewStudent, newStudent)} />
+
+  {/* --- MANA SHU YERGA QO'SHING --- */}
+  <InputGroup 
+    label="Ota-ona Telefoni" 
+    placeholder="+998" 
+    value={newStudent.parentPhone} 
+    onChange={(v:string) => setNewStudent({...newStudent, parentPhone: v})} 
+  />
+  {/* ------------------------------ */}
+
+  <InputGroup label="Guruh" value={newStudent.group} onChange={(v:string) => setNewStudent({...newStudent, group:v})} />
+</div>
+                <InputGroup label="To'liq Ism" placeholder="Ismingizni kiriting" value={newStudent.name} onChange={(v:string) => setNewStudent({...newStudent, name:v})} />
+                <InputGroup label="Guruh" placeholder="Guruh nomi" value={newStudent.group} onChange={(v:string) => setNewStudent({...newStudent, group:v})} />
                 <InputGroup label="Telefon" placeholder="+998" type="tel" value={newStudent.phone} onChange={(v:string) => handlePhoneInput(v, setNewStudent, newStudent)} />
                 <div className="flex gap-6 pt-10">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 font-black text-slate-400 uppercase text-xs hover:text-red-500 transition-colors">Bekor qilish</button>
@@ -689,7 +728,7 @@ const handleAuth = async (e: React.FormEvent) => {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 // --- HELPER COMPONENTS ---
