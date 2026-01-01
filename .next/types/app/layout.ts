@@ -1,4 +1,4 @@
-// File: D:\kerakli\DARSLIKLAR\web sahifalarim\Repipitor sayti uchun\app\layout.tsx
+// File: D:\kerakli\web sahifalarim\Repipitor sayti uchun\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ThemeProvider } from "../components/theme-provider";
+// Import yo'lini @ alias orqali ko'rsatish xatolikni oldini oladi
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 // Asosiy shriftni sozlaymiz
@@ -19,21 +20,22 @@ export default function RootLayout({
   return (
     <html lang="uz" suppressHydrationWarning>
       <head>
-        {/* Ikonkalar chiqishi uchun FontAwesome linkini qo'shdik */}
+        {/* Ikonkalar chiqishi uchun FontAwesome linki */}
         <link 
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          precedence="default"
         />
       </head>
       <body className={inter.className}>
         <ThemeProvider 
           attribute="class" 
-          defaultTheme="light" // Boshida light mode bo'lishi uchun (xohlasangiz dark qoling)
+          defaultTheme="light" 
           enableSystem={true}
           disableTransitionOnChange
         >
-          {/* h-screen overflow-hidden saytni qotirib, skrollni chiroyli qiladi */}
-          <div className="h-screen overflow-hidden">
+          {/* h-screen overflow-hidden butun sahifa skrollini boshqaradi */}
+          <div className="h-screen overflow-hidden bg-white dark:bg-[#020617] transition-colors duration-300">
             {children}
           </div>
         </ThemeProvider>

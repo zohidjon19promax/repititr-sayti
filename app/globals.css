@@ -2,7 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sizning qolgan oklch ranglaringiz va @theme qismlaringiz shu yerda davom etaveradi... */
+/* Sizning qolgan oklch ranglaringiz va @theme qismlaringiz... 
+  Tailwind v4+ konfiguratsiyasi uchun 
+*/
 
 @plugin "tailwindcss-animate";
 
@@ -80,5 +82,14 @@
     /* Shrift silliqligi uchun */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Dashboard uchun maxsus skrollbar (qo'shimcha) */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
   }
 }
