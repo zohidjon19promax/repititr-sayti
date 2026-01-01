@@ -295,7 +295,7 @@ const handleAuth = async (e: React.FormEvent) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* students.length - bazadagi o'quvchilar sonini chiqaradi */}
               <StatCard label="Jami O'quvchilar" value={students.length} icon={<Users/>} color="blue" trend="+12%" />
-              
+
               {/* schedules.length - bugungi darslar sonini bazadan oladi */}
               <StatCard label="Bugungi Darslar" value={schedules.length || "0"} icon={<Calendar/>} color="emerald" trend="Aktiv" />
               
@@ -692,46 +692,71 @@ const handleAuth = async (e: React.FormEvent) => {
             )}
         </div>
       </main>
+      );
+{/* Modal only for Teacher */}
+{isModalOpen && role === 'teacher' && (
+  <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-300">
+    <form onSubmit={addStudent} className="bg-white dark:bg-slate-900 p-12 rounded-[3.5rem] max-w-xl w-full border border-white/10 shadow-2xl">
+      <h3 className="text-3xl font-black dark:text-white mb-6 italic text-blue-500 uppercase">Talaba Qo'shish</h3>
+      
+      <div className="space-y-6">
+        {/* 1. To'liq Ism */}
+        <InputGroup 
+          label="To'liq Ism" 
+          placeholder="Ismingizni kiriting" 
+          value={newStudent.name} 
+          onChange={(v:string) => setNewStudent({...newStudent, name:v})} 
+        />
+        
+        {/* 2. O'quvchi telefoni */}
+        <InputGroup 
+          label="O'quvchi Telefoni" 
+          placeholder="+998" 
+          type="tel" 
+          value={newStudent.phone} 
+          onChange={(v:string) => handlePhoneInput(v, setNewStudent, newStudent)} 
+        />
 
-      {/* Modal only for Teacher */}
-      {isModalOpen && role === 'teacher' && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-300">
-           <form onSubmit={addStudent} className="bg-white dark:bg-slate-900 p-12 rounded-[3.5rem] max-w-xl w-full border border-white/10 shadow-2xl">
-              <h3 className="text-3xl font-black dark:text-white mb-6 italic text-blue-500">Talaba Qo'shish</h3>
-              <div className="space-y-6">
-                <div className="space-y-6">
-  <InputGroup label="To'liq Ism" value={newStudent.name} onChange={(v:string) => setNewStudent({...newStudent, name:v})} />
-  
-  {/* O'quvchi telefoni */}
-  <InputGroup label="Telefon" value={newStudent.phone} onChange={(v:string) => handlePhoneInput(v, setNewStudent, newStudent)} />
+        {/* 3. Ota-ona telefoni */}
+        <InputGroup 
+          label="Ota-ona Telefoni" 
+          placeholder="+998" 
+          type="tel"
+          value={newStudent.parentPhone} 
+          onChange={(v:string) => setNewStudent({...newStudent, parentPhone: v})} 
+        />
 
-  {/* --- MANA SHU YERGA QO'SHING --- */}
-  <InputGroup 
-    label="Ota-ona Telefoni" 
-    placeholder="+998" 
-    value={newStudent.parentPhone} 
-    onChange={(v:string) => setNewStudent({...newStudent, parentPhone: v})} 
-  />
-  {/* ------------------------------ */}
+        {/* 4. Guruh nomi */}
+        <InputGroup 
+          label="Guruh" 
+          placeholder="Guruh nomi" 
+          value={newStudent.group} 
+          onChange={(v:string) => setNewStudent({...newStudent, group:v})} 
+        />
 
-  <InputGroup label="Guruh" value={newStudent.group} onChange={(v:string) => setNewStudent({...newStudent, group:v})} />
-</div>
-                <InputGroup label="To'liq Ism" placeholder="Ismingizni kiriting" value={newStudent.name} onChange={(v:string) => setNewStudent({...newStudent, name:v})} />
-                <InputGroup label="Guruh" placeholder="Guruh nomi" value={newStudent.group} onChange={(v:string) => setNewStudent({...newStudent, group:v})} />
-                <InputGroup label="Telefon" placeholder="+998" type="tel" value={newStudent.phone} onChange={(v:string) => handlePhoneInput(v, setNewStudent, newStudent)} />
-                <div className="flex gap-6 pt-10">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 font-black text-slate-400 uppercase text-xs hover:text-red-500 transition-colors">Bekor qilish</button>
-                  <button className="flex-[2] bg-blue-600 text-white rounded-[1.5rem] font-black py-5 shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition-all">SAQLASH</button>
-                </div>
-              </div>
-           </form>
+        {/* Tugmalar */}
+        <div className="flex gap-6 pt-10">
+          <button 
+            type="button" 
+            onClick={() => setIsModalOpen(false)} 
+            className="flex-1 font-black text-slate-400 uppercase text-xs hover:text-red-500 transition-colors"
+          >
+            Bekor qilish
+          </button>
+          <button 
+            type="submit" 
+            className="flex-[2] bg-blue-600 text-white rounded-[1.5rem] font-black py-5 shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition-all uppercase text-sm"
+          >
+            Saqlash
+          </button>
         </div>
-      )}
+      </div>
+    </form>
+  </div>
+)} 
     </div>
-  )
+  );
 }
-
-// --- HELPER COMPONENTS ---
 function SidebarItem({ active, icon, label, onClick }: any) {
   return (
     <button onClick={onClick} className={`w-full flex items-center gap-5 px-8 py-5 rounded-[1.5rem] transition-all group ${active ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30 translate-x-2' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
@@ -740,7 +765,6 @@ function SidebarItem({ active, icon, label, onClick }: any) {
     </button>
   );
 }
-
 function RoleCard({ icon, title, desc, color, onClick }: any) {
     const colors: any = {
         blue: 'hover:border-blue-500 text-blue-500',
